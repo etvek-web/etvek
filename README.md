@@ -62,7 +62,7 @@ Todas están documentadas en `.env.example`.
 | `DATABASE_URL` | Sí | Conexión a Prisma Postgres. Si el proveedor ofrece URL *pooled* y *direct*, usá la direct: las migraciones corren en el build. |
 | `AUTH_SECRET` | Sí | Firma de las cookies de sesión del panel. Mínimo 32 caracteres. |
 | `BLOB_READ_WRITE_TOKEN` | Sí | Lectura/escritura en Vercel Blob. |
-| `NEXT_PUBLIC_SITE_URL` | Recomendada | Canonical, sitemap y Open Graph. |
+| `NEXT_PUBLIC_SITE_URL` | Recomendada | Canonical, sitemap y Open Graph. Si falta o queda vacía se usa `VERCEL_PROJECT_PRODUCTION_URL`, y en local `http://localhost:3000`. Acepta el dominio sin protocolo. |
 | `RESEND_API_KEY` / `NOTIFICATIONS_FROM` | No | Aviso por email de nuevas admisiones. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | No | Sólo para crear la administradora vía seed. |
 
@@ -337,6 +337,10 @@ usable. Casos:
   guardala como `DATABASE_URL`.
 
 El prefijo del store no es un problema: `etvek_POSTGRES_URL` y similares se detectan solos.
+
+**`sitemap.xml` o los canonical apuntan a `localhost`**
+`robots.txt` y `sitemap.xml` se prerenderizan durante el build, así que toman la base de ese momento.
+Cargá `NEXT_PUBLIC_SITE_URL` con el dominio definitivo y redeployá.
 
 **El seed avisa `ADMIN_PASSWORD insegura`**
 El build sigue adelante a propósito: el seed nunca voltea un deploy. Corregí la variable o creá la

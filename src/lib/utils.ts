@@ -48,10 +48,39 @@ export function whatsappHref(number: string | null | undefined, message: string)
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
 
+/** Lee una variable de entorno tratando la cadena vacía como ausente. */
+function env(name: string): string | null {
+  const value = process.env[name];
+  return value && value.trim() ? value.trim() : null;
+}
+
+/**
+ * URL absoluta del sitio. La base se resuelve por prioridad y tolera variables
+ * definidas pero vacías, que es como quedan al crearlas sin valor en Vercel.
+ * Si falta el protocolo se asume https.
+ */
 export function absoluteUrl(path = "/") {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null) ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-  return new URL(path, base).toString();
+  const configured = env("NEXT_PUBLIC_SITE_URL");
+  const production = env("VERCEL_PROJECT_PRODUCTION_URL");
+  const deployment = env("VERCEL_URL");
+
+  const candidates = [
+    configured,
+    production ? `https://${production}` : null,
+    deployment ? `https://${deployment}` : null,
+    "http://localhost:3000",
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const withProtocol = /^https?:\/\//i.test(candidate) ? candidate : `https://${candidate}`;
+    try {
+      return new URL(path, withProtocol).toString();
+    } catch {
+      // Valor mal formado: probamos el siguiente candidato.
+    }
+  }
+
+  // Inalcanzable en la práctica: el último candidato es una base válida.
+  return path;
 }

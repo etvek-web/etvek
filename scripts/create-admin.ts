@@ -15,11 +15,17 @@ function arg(flag: string) {
   return i > -1 ? process.argv[i + 1] : undefined;
 }
 
+/** Trata la cadena vacía como ausente, igual que una variable sin valor. */
+function envOr(name: string) {
+  const value = process.env[name];
+  return value && value.trim() ? value.trim() : undefined;
+}
+
 async function main() {
   const rl = createInterface({ input: stdin, output: stdout });
-  const email = (arg("email") ?? process.env.ADMIN_EMAIL ?? (await rl.question("Email: "))).trim().toLowerCase();
-  const name = arg("name") ?? process.env.ADMIN_NAME ?? (await rl.question("Nombre: "));
-  const password = process.env.ADMIN_PASSWORD ?? (await rl.question("Contraseña (mín. 12 caracteres): "));
+  const email = (arg("email") ?? envOr("ADMIN_EMAIL") ?? (await rl.question("Email: "))).trim().toLowerCase();
+  const name = arg("name") ?? envOr("ADMIN_NAME") ?? (await rl.question("Nombre: "));
+  const password = envOr("ADMIN_PASSWORD") ?? (await rl.question("Contraseña (mín. 12 caracteres): "));
   rl.close();
 
   const issues = passwordIssues(password);
