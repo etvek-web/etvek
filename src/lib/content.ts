@@ -116,10 +116,3 @@ export const getPublishedPagePaths = unstable_cache(
   ["page-paths"],
   { tags: [TAGS.pages], revalidate: 3600 },
 );
-
-export type SectionMap = Record<string, Awaited<ReturnType<typeof getPage>> extends infer P ? P extends { sections: infer S } ? S extends Array<infer I> ? I : never : never : never>;
-
-/** Indexa las secciones de una página por su `key` para render declarativo. */
-export function sectionsByKey<T extends { key: string }>(sections: T[]): Record<string, T> {
-  return Object.fromEntries(sections.map((s) => [s.key, s])) as Record<string, T>;
-}

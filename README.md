@@ -276,6 +276,10 @@ El store de Blob no está vinculado al proyecto en Vercel, o falta la variable e
 La cookie de sesión no se está guardando. En producción requiere HTTPS; si cambiaste `AUTH_SECRET`,
 todas las sesiones existentes quedan invalidadas: volvé a iniciar sesión.
 
+**Activé el modo mantenimiento y el sitio sigue visible**
+El modo mantenimiento se aplica al guardar desde `/admin → Configuración`, que es lo que dispara la
+revalidación. Cambiarlo directamente en la base no invalida la caché de las páginas.
+
 **Un cambio del panel no aparece en la web**
 La revalidación por tags es inmediata al guardar. Si el navegador muestra la versión vieja, forzá una
 recarga sin caché. Verificá también que la sección esté *visible* y en estado *Publicada*.

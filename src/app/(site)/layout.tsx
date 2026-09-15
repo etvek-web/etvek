@@ -4,6 +4,7 @@ import { Footer } from "@/components/site/footer";
 import { WhatsAppFab } from "@/components/site/whatsapp-fab";
 import { getCountries, getNavigation, getSettings, getSocialLinks } from "@/lib/content";
 import { absoluteUrl, whatsappHref } from "@/lib/utils";
+import { MaintenanceScreen } from "@/components/site/maintenance";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const [settings, navigation, socials, countries] = await Promise.all([
@@ -12,6 +13,12 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     getSocialLinks(),
     getCountries(),
   ]);
+
+  // Modo mantenimiento: se activa y desactiva desde /admin → Configuración.
+  // No se lee la cookie de sesión acá para no volver dinámico todo el sitio público.
+  if (settings.maintenanceMode) {
+    return <MaintenanceScreen siteName={settings.siteName} contactEmail={settings.contactEmail} />;
+  }
 
   const map = (location: string) =>
     navigation
