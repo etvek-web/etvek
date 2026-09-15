@@ -191,9 +191,12 @@ funciona desde el celular.
 3. **Storage → Blob**: se vincula e inyecta `BLOB_READ_WRITE_TOKEN`.
 4. Cargar `AUTH_SECRET` y `NEXT_PUBLIC_SITE_URL` en *Environment Variables*.
 5. Deploy. El script `vercel-build` (`scripts/vercel-build.mjs`) resuelve la conexión, aplica las
-   migraciones, corre el seed y compila. Acepta `DATABASE_URL`, `PRISMA_DATABASE_URL`, `POSTGRES_URL_NON_POOLING`,
-   `POSTGRES_URL` o `POSTGRES_PRISMA_URL` — la primera que tenga valor, priorizando la conexión directa
-   sobre la *pooled*. Si ninguna existe, el build falla con un mensaje que indica qué configurar.
+   migraciones, corre el seed y compila. Acepta `DATABASE_URL`, `PRISMA_DATABASE_URL`,
+   `POSTGRES_URL_NON_POOLING`, `POSTGRES_URL` y `POSTGRES_PRISMA_URL`, **con o sin el prefijo del store**
+   que agrega la integración de Vercel (por ejemplo `etvek_POSTGRES_URL`). Descarta las cadenas de
+   Accelerate (`prisma+postgres://`), porque el proyecto conecta directo a Postgres, y elige la primera
+   que sea una URL `postgres://` usable. Si no encuentra ninguna, el build falla explicando qué encontró
+   y qué configurar.
 6. Abrir `/admin/setup` en el sitio recién publicado y crear la cuenta de Eliana. Esa pantalla sólo
    existe mientras no haya ninguna usuaria: en cuanto se crea la primera, se cierra de forma permanente.
 
@@ -324,14 +327,21 @@ Ojo con los entornos: Production, Preview y Development se cargan por separado, 
 puesta sólo en Production no está disponible en un Preview.
 
 **`No hay conexión a la base de datos`**
-Lo imprime `scripts/vercel-build.mjs` cuando ninguna de las variables de conexión tiene valor. La causa
-habitual es que el store de Postgres no quedó vinculado al proyecto: *Storage → Prisma Postgres →
-Connect Project*. Después del vínculo hay que **redeployar**: las variables nuevas no se inyectan en un
-deploy ya iniciado.
+Lo imprime `scripts/vercel-build.mjs` cuando no encuentra ninguna variable con una URL `postgres://`
+usable. Casos:
 
-**`usa el protocolo prisma+postgres://`**
-Es la cadena de Accelerate. Este proyecto conecta directo a Postgres: copiá del dashboard de Prisma
-Postgres la connection string que empieza con `postgres://` y guardala como `DATABASE_URL`.
+- El store no quedó vinculado al proyecto: *Storage → Prisma Postgres → Connect Project*. Después del
+  vínculo hay que **redeployar**: las variables nuevas no entran en un deploy ya iniciado.
+- Todas las cadenas encontradas son de Accelerate (`prisma+postgres://`). El mensaje las lista por
+  nombre. Copiá del panel de Prisma Postgres la connection string que empieza con `postgres://` y
+  guardala como `DATABASE_URL`.
+
+El prefijo del store no es un problema: `etvek_POSTGRES_URL` y similares se detectan solos.
+
+**El seed avisa `ADMIN_PASSWORD insegura`**
+El build sigue adelante a propósito: el seed nunca voltea un deploy. Corregí la variable o creá la
+cuenta desde `/admin/setup`. Después del primer ingreso, **borrá `ADMIN_PASSWORD`** de las variables de
+entorno: no hace falta que una contraseña quede guardada ahí.
 
 **Vercel deploya la rama equivocada**
 *Settings → Git → Production Branch* debe decir `main`.

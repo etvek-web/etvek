@@ -1,18 +1,20 @@
 /**
  * Build de producción con resolución robusta de la conexión a Postgres.
  *
- * Las integraciones de Vercel no siempre inyectan la variable con el mismo nombre:
- * Prisma Postgres usa PRISMA_DATABASE_URL, los stores Postgres clásicos usan
- * POSTGRES_URL / POSTGRES_URL_NON_POOLING. Este script busca la primera que exista,
- * la expone como DATABASE_URL y recién entonces corre migraciones y build.
- * Si no encuentra ninguna, falla con un mensaje que dice exactamente qué hacer.
+ * Las integraciones de Vercel no usan un nombre único para la variable: Prisma Postgres
+ * puede inyectar DATABASE_URL, PRISMA_DATABASE_URL o POSTGRES_URL, y además las prefija
+ * con el nombre del store (por ejemplo `etvek_DATABASE_URL`). Algunas de esas cadenas son
+ * de Accelerate (`prisma+postgres://`), que este proyecto no usa porque conecta directo.
+ *
+ * Este script junta todas las candidatas, descarta las que no son Postgres directo, expone
+ * la primera usable como DATABASE_URL y recién entonces migra, siembra y compila.
  */
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { delimiter, resolve } from "node:path";
 
-// Prioridad: conexión directa antes que pooled (las migraciones no pasan por el pooler).
-const CANDIDATES = [
+// Sufijos en orden de preferencia: conexión directa antes que pooled.
+const SUFFIXES = [
   "DATABASE_URL",
   "PRISMA_DATABASE_URL",
   "POSTGRES_URL_NON_POOLING",
@@ -30,51 +32,78 @@ for (const file of [".env.local", ".env"]) {
   }
 }
 
-function fail(message) {
-  console.error(`\n✖ ${message}\n`);
+function fail(lines) {
+  console.error(`\n✖ ${lines.join("\n")}\n`);
   process.exit(1);
 }
 
-const found = CANDIDATES.find((name) => (process.env[name] ?? "").trim().length > 0);
+/** Nombres candidatos: primero la coincidencia exacta, después cualquier `PREFIJO_SUFIJO`. */
+function candidateNames() {
+  const names = [];
+  const seen = new Set();
+  const add = (name) => {
+    if (!seen.has(name)) {
+      seen.add(name);
+      names.push(name);
+    }
+  };
 
-if (!found) {
-  fail(
-    [
-      "No hay conexión a la base de datos.",
-      "",
-      "Ninguna de estas variables tiene valor:",
-      ...CANDIDATES.map((name) => `  · ${name}`),
-      "",
-      "En Vercel: Storage → Prisma Postgres → Connect Project, o cargá DATABASE_URL",
-      "a mano en Settings → Environment Variables (y marcá el entorno correcto:",
-      "Production, Preview y Development se configuran por separado).",
-      "",
-      "Una variable creada pero vacía cuenta como ausente.",
-    ].join("\n"),
-  );
+  for (const suffix of SUFFIXES) {
+    if (process.env[suffix] !== undefined) add(suffix);
+    for (const key of Object.keys(process.env)) {
+      if (key !== suffix && key.endsWith(`_${suffix}`)) add(key);
+    }
+  }
+  return names;
 }
 
-const url = process.env[found].trim();
+const usable = [];
+const accelerate = [];
+const invalid = [];
 
-if (url.startsWith("prisma+postgres://")) {
-  fail(
-    [
-      `${found} usa el protocolo prisma+postgres:// (conexión vía Accelerate).`,
+for (const name of candidateNames()) {
+  const value = (process.env[name] ?? "").trim();
+  if (!value) continue;
+  if (/^postgres(ql)?:\/\//.test(value)) usable.push({ name, value });
+  else if (value.startsWith("prisma+postgres://")) accelerate.push(name);
+  else invalid.push(name);
+}
+
+if (usable.length === 0) {
+  const detail = [];
+  if (accelerate.length) {
+    detail.push(
       "",
-      "Este proyecto conecta directo a Postgres, así que necesita la cadena directa.",
-      "En el dashboard de Prisma Postgres copiá la connection string que empieza con",
-      "postgres:// o postgresql:// y guardala como DATABASE_URL en Vercel.",
-    ].join("\n"),
-  );
+      `Encontré cadenas de Accelerate (prisma+postgres://) en: ${accelerate.join(", ")}.`,
+      "Este proyecto conecta directo a Postgres. En el panel de Prisma Postgres copiá la",
+      "connection string que empieza con postgres:// y guardala como DATABASE_URL.",
+    );
+  }
+  if (invalid.length) {
+    detail.push("", `Estas variables tienen un valor que no parece Postgres: ${invalid.join(", ")}.`);
+  }
+
+  fail([
+    "No hay conexión a la base de datos.",
+    "",
+    "Busqué una variable de Postgres con cualquiera de estos nombres, con o sin prefijo",
+    "del store (por ejemplo `mistore_DATABASE_URL`):",
+    ...SUFFIXES.map((name) => `  · ${name}`),
+    ...detail,
+    "",
+    "En Vercel: Storage → Prisma Postgres → Connect Project, o cargá DATABASE_URL a mano",
+    "en Settings → Environment Variables. Una variable creada pero vacía cuenta como ausente,",
+    "y Production, Preview y Development se configuran por separado.",
+  ]);
 }
 
-if (!/^postgres(ql)?:\/\//.test(url)) {
-  fail(`${found} no parece una cadena de conexión de Postgres (debe empezar con postgres:// o postgresql://).`);
+const chosen = usable[0];
+if (chosen.name !== "DATABASE_URL") {
+  console.log(`· Conexión tomada de ${chosen.name} y expuesta como DATABASE_URL.`);
+  process.env.DATABASE_URL = chosen.value;
 }
-
-if (found !== "DATABASE_URL") {
-  console.log(`· Conexión tomada de ${found} y expuesta como DATABASE_URL.`);
-  process.env.DATABASE_URL = url;
+if (usable.length > 1) {
+  console.log(`· Otras conexiones disponibles, sin usar: ${usable.slice(1).map((c) => c.name).join(", ")}.`);
 }
 
 // Permite ejecutar el script con `node` directo, no sólo vía `npm run`.
@@ -93,6 +122,6 @@ function run(command) {
 run("prisma generate");
 run("prisma migrate deploy");
 // El seed sólo crea lo que falta: nunca sobrescribe contenido editado desde /admin,
-// así que es seguro en cada deploy y evita depender de una terminal con acceso a la base.
+// así que es seguro en cada deploy.
 run("prisma db seed");
 run("next build");

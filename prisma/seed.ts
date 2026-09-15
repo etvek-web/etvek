@@ -27,16 +27,27 @@ async function seedAdmin() {
     return;
   }
 
+  // El seed corre dentro del build: un problema acá nunca debe voltear el deploy.
   const issues = passwordIssues(password);
-  if (issues.length) throw new Error(`ADMIN_PASSWORD insegura: ${issues.join(" ")}`);
+  if (issues.length) {
+    console.warn(`⚠ ADMIN_PASSWORD insegura, no se creó la cuenta: ${issues.join(" ")}`);
+    console.warn("  Creá la cuenta desde /admin/setup o corregí la variable.");
+    return;
+  }
 
-  const passwordHash = await hashPassword(password);
-  await prisma.user.upsert({
-    where: { email },
-    update: { name, isActive: true },
-    create: { email, name, passwordHash, role: "ADMIN" },
-  });
-  console.log(`· Admin listo: ${email}`);
+  try {
+    const passwordHash = await hashPassword(password);
+    await prisma.user.upsert({
+      where: { email },
+      update: { name, isActive: true },
+      create: { email, name, passwordHash, role: "ADMIN" },
+    });
+    console.log(`· Admin listo: ${email}`);
+    console.log("  Borrá ADMIN_PASSWORD de las variables de entorno después del primer ingreso.");
+  } catch (error) {
+    console.warn(`⚠ No se pudo crear la cuenta administradora: ${(error as Error).message}`);
+    console.warn("  Podés crearla desde /admin/setup.");
+  }
 }
 
 async function main() {
