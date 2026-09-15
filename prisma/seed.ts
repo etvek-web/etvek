@@ -1,6 +1,9 @@
 /**
- * Seed inicial de ETVEK. Idempotente: puede ejecutarse varias veces.
- * Usa el contenido del brief (Web ETVEK.pdf) como estado inicial editable desde /admin.
+ * Seed inicial de ETVEK.
+ *
+ * Estrictamente NO destructivo: sólo crea lo que falta y nunca sobrescribe un registro
+ * existente. Por eso puede correr en cada deploy sin pisar las ediciones hechas desde
+ * /admin. El contenido proviene del brief (Web ETVEK.pdf) y es el estado inicial editable.
  */
 import { Prisma, PrismaClient } from "@prisma/client";
 import { COUNTRIES, CREDENTIALS, NAVIGATION, PAYMENT_METHODS, PROGRAMS, TIMELINE } from "./seed-content";
@@ -51,91 +54,75 @@ async function main() {
     },
   });
 
+  // Países y programas tienen clave natural estable (code / slug): chequeo por registro.
   for (const [i, c] of COUNTRIES.entries()) {
-    await prisma.country.upsert({
-      where: { code: c.code },
-      update: { name: c.name, dialCode: c.dialCode, flag: c.flag, timezone: c.timezone, sortOrder: i },
-      create: { ...c, sortOrder: i },
-    });
+    const existing = await prisma.country.findUnique({ where: { code: c.code } });
+    if (!existing) await prisma.country.create({ data: { ...c, sortOrder: i } });
   }
 
-  for (const [i, c] of CREDENTIALS.entries()) {
-    const existing = await prisma.credential.findFirst({ where: { label: c.label } });
-    if (existing) {
-      await prisma.credential.update({ where: { id: existing.id }, data: { ...c, sortOrder: i } });
-    } else {
-      await prisma.credential.create({ data: { ...c, sortOrder: i } });
-    }
+  // Tablas sin clave natural: se siembran sólo si están vacías. Si Eliana renombró o
+  // borró un registro, no lo recreamos ni lo duplicamos en el próximo deploy.
+  if ((await prisma.credential.count()) === 0) {
+    await prisma.credential.createMany({
+      data: CREDENTIALS.map((c, i) => ({ ...c, sortOrder: i })),
+    });
   }
 
   for (const [i, p] of PROGRAMS.entries()) {
     const { features, ...program } = p;
-    const saved = await prisma.program.upsert({
-      where: { slug: p.slug },
-      update: { ...program, sortOrder: i },
-      create: { ...program, sortOrder: i },
-    });
-    await prisma.programFeature.deleteMany({ where: { programId: saved.id } });
+    const existing = await prisma.program.findUnique({ where: { slug: p.slug } });
+    if (existing) continue;
+    const saved = await prisma.program.create({ data: { ...program, sortOrder: i } });
     await prisma.programFeature.createMany({
       data: features.map((label, idx) => ({ programId: saved.id, label, sortOrder: idx })),
     });
   }
 
-  for (const [i, t] of TIMELINE.entries()) {
-    const existing = await prisma.timelineEvent.findFirst({ where: { title: t.title } });
-    if (existing) {
-      await prisma.timelineEvent.update({ where: { id: existing.id }, data: { ...t, sortOrder: i } });
-    } else {
-      await prisma.timelineEvent.create({ data: { ...t, sortOrder: i } });
-    }
+  if ((await prisma.timelineEvent.count()) === 0) {
+    await prisma.timelineEvent.createMany({
+      data: TIMELINE.map((t, i) => ({ ...t, sortOrder: i })),
+    });
   }
 
-  for (const [i, m] of PAYMENT_METHODS.entries()) {
-    const existing = await prisma.paymentMethod.findFirst({ where: { name: m.name } });
-    if (existing) {
-      await prisma.paymentMethod.update({ where: { id: existing.id }, data: { ...m, sortOrder: i } });
-    } else {
-      await prisma.paymentMethod.create({ data: { ...m, sortOrder: i } });
-    }
+  if ((await prisma.paymentMethod.count()) === 0) {
+    await prisma.paymentMethod.createMany({
+      data: PAYMENT_METHODS.map((m, i) => ({ ...m, sortOrder: i })),
+    });
   }
 
-  for (const n of NAVIGATION) {
-    const existing = await prisma.navigationItem.findFirst({ where: { href: n.href, location: n.location } });
-    if (existing) {
-      await prisma.navigationItem.update({ where: { id: existing.id }, data: n });
-    } else {
-      await prisma.navigationItem.create({ data: n });
-    }
+  if ((await prisma.navigationItem.count()) === 0) {
+    await prisma.navigationItem.createMany({ data: NAVIGATION });
   }
 
   for (const [pageIndex, page] of PAGES.entries()) {
-    const saved = await prisma.page.upsert({
-      where: { slug: page.slug },
-      update: { title: page.title, sortOrder: pageIndex },
-      create: { slug: page.slug, title: page.title, sortOrder: pageIndex },
-    });
+    const existingPage = await prisma.page.findUnique({ where: { slug: page.slug } });
+    const saved =
+      existingPage ??
+      (await prisma.page.create({ data: { slug: page.slug, title: page.title, sortOrder: pageIndex } }));
 
     const path = page.slug === "home" ? "/" : `/${page.slug}`;
-    await prisma.seoMetadata.upsert({
-      where: { path },
-      update: { pageId: saved.id },
-      create: { path, pageId: saved.id, ...page.seo },
-    });
+    const existingSeo = await prisma.seoMetadata.findUnique({ where: { path } });
+    if (!existingSeo) {
+      await prisma.seoMetadata.create({ data: { path, pageId: saved.id, ...page.seo } });
+    }
 
     for (const [i, section] of page.sections.entries()) {
       const { items = [], data, ...rest } = section;
-      const savedSection = await prisma.pageSection.upsert({
+      const existingSection = await prisma.pageSection.findUnique({
         where: { pageId_key: { pageId: saved.id, key: section.key } },
-        update: { sortOrder: i },
-        create: {
+      });
+      if (existingSection) continue;
+
+      const savedSection = await prisma.pageSection.create({
+        data: {
           ...rest,
           pageId: saved.id,
           sortOrder: i,
           data: (data ?? undefined) as Prisma.InputJsonValue | undefined,
         },
       });
-      const itemCount = await prisma.pageSectionItem.count({ where: { sectionId: savedSection.id } });
-      if (itemCount === 0 && items.length) {
+
+      if (items.length) {
         await prisma.pageSectionItem.createMany({
           data: items.map((item, idx) => ({
             sectionId: savedSection.id,

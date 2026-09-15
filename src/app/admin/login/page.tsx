@@ -1,12 +1,16 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { LoginForm } from "@/components/admin/login-form";
 import { AcousticWave } from "@/components/site/acoustic-wave";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Ingresar — Panel ETVEK", robots: { index: false, follow: false } };
 
 export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/admin");
+  // Sin ninguna cuenta creada, el ingreso no sirve: mandamos al alta inicial.
+  if ((await prisma.user.count()) === 0) redirect("/admin/setup");
 
   return (
     <main className="relative isolate flex min-h-dvh items-center justify-center px-5 py-16">

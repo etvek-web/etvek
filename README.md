@@ -86,7 +86,14 @@ npm run db:seed            # contenido inicial (idempotente)
 ```
 
 El esquema (`prisma/schema.prisma`) y las migraciones (`prisma/migrations/`) están versionados en GitHub.
-El seed es idempotente: puede volver a ejecutarse sin duplicar contenido.
+El seed **no es destructivo**: sólo crea lo que falta y nunca sobrescribe un registro existente. Las
+tablas con clave natural estable (países por `code`, programas por `slug`) se completan registro por
+registro; las que no la tienen (credenciales, trayectoria, métodos de pago, navegación) se siembran
+sólo si están vacías, así un registro renombrado o borrado desde `/admin` no reaparece ni se duplica.
+Por eso el seed corre en cada deploy sin riesgo.
+
+Verificado: con ediciones y borrados hechos a mano, tres corridas consecutivas del seed dejaron los
+conteos y los textos intactos.
 
 ---
 
@@ -95,15 +102,21 @@ El seed es idempotente: puede volver a ejecutarse sin duplicar contenido.
 No existe registro público: `/signup` no existe y `/admin/*` está protegido en middleware, en cada página
 y en cada server action.
 
+Hay dos formas de crear la primera cuenta:
+
+**Desde el navegador (recomendado en Vercel).** Después del primer deploy, entrá a `/admin/setup`.
+La pantalla sólo responde mientras la tabla de usuarias está vacía; al crear la cuenta inicia sesión y
+queda cerrada de forma permanente. `/admin/login` redirige ahí solo si todavía no hay ninguna cuenta.
+Está limitada por rate limit y el alta queda registrada en el log de auditoría.
+
+**Desde una terminal**, si preferís no exponer esa pantalla ni por un minuto:
+
 ```bash
 npm run admin:create -- --email eliana@etvek.com --name "Eliana Kestler"
 ```
 
 Pide la contraseña por consola (mínimo 12 caracteres, con mayúscula, minúscula y número) y la guarda
 hasheada con `scrypt` + salt aleatorio. Nunca se almacena en texto plano.
-
-En Vercel, la forma más simple de crear la primera cuenta es ejecutar el mismo comando en local
-apuntando `DATABASE_URL` a la base de producción, y borrar después las variables `ADMIN_*`.
 
 ---
 
@@ -178,11 +191,14 @@ funciona desde el celular.
 3. **Storage → Blob**: se vincula e inyecta `BLOB_READ_WRITE_TOKEN`.
 4. Cargar `AUTH_SECRET` y `NEXT_PUBLIC_SITE_URL` en *Environment Variables*.
 5. Deploy. El script `vercel-build` (`scripts/vercel-build.mjs`) resuelve la conexión, aplica las
-   migraciones y compila. Acepta `DATABASE_URL`, `PRISMA_DATABASE_URL`, `POSTGRES_URL_NON_POOLING`,
+   migraciones, corre el seed y compila. Acepta `DATABASE_URL`, `PRISMA_DATABASE_URL`, `POSTGRES_URL_NON_POOLING`,
    `POSTGRES_URL` o `POSTGRES_PRISMA_URL` — la primera que tenga valor, priorizando la conexión directa
    sobre la *pooled*. Si ninguna existe, el build falla con un mensaje que indica qué configurar.
-6. Ejecutar el seed una vez: `npm run db:seed` con `DATABASE_URL` apuntando a producción.
-7. Crear la administradora: `npm run admin:create`.
+6. Abrir `/admin/setup` en el sitio recién publicado y crear la cuenta de Eliana. Esa pantalla sólo
+   existe mientras no haya ninguna usuaria: en cuanto se crea la primera, se cierra de forma permanente.
+
+No hace falta una terminal con acceso a la base: las migraciones y el seed corren en el build, y el
+alta de la administradora se hace desde el navegador.
 
 Flujo: `GitHub → Vercel → Production`. Cada Pull Request genera un Preview Deployment; los push a `main`
 publican en producción.
@@ -261,7 +277,8 @@ fuera de las que constan en el brief.
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript sin emitir |
 | `npm run db:migrate` / `db:deploy` / `db:seed` / `db:studio` | Prisma |
-| `npm run admin:create` | Crear o actualizar la administradora |
+| `npm run admin:create` | Crear o actualizar la administradora desde una terminal |
+| `npm run vercel-build` | Lo que corre Vercel: conexión + migraciones + seed + build |
 
 ---
 
@@ -295,6 +312,10 @@ Hay un valor único repetido: slug de programa, código ISO de país o email de 
 **Error de migraciones en el deploy**
 Verificá que `DATABASE_URL` apunte a una conexión con permisos de DDL y sin pooling. Si el proveedor te
 da una URL *pooled* y otra *direct*, usá la direct: `prisma migrate deploy` corre en el build.
+
+**`P1001: Can't reach database server`**
+La red desde donde corrés el comando no llega al puerto 5432 del host, o la cadena apunta a un host
+equivocado. Las migraciones en producción no dependen de esto: corren dentro del build de Vercel.
 
 **`P1012: ... resolved to an empty string`**
 La variable existe en Vercel pero está vacía, y Prisma trata la cadena vacía como error, no como

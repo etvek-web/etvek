@@ -92,4 +92,7 @@ function run(command) {
 
 run("prisma generate");
 run("prisma migrate deploy");
+// El seed sólo crea lo que falta: nunca sobrescribe contenido editado desde /admin,
+// así que es seguro en cada deploy y evita depender de una terminal con acceso a la base.
+run("prisma db seed");
 run("next build");

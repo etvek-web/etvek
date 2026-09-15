@@ -8,7 +8,8 @@ import { SESSION_COOKIE } from "@/lib/constants";
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (!pathname.startsWith("/admin") || pathname === "/admin/login") return NextResponse.next();
+  const PUBLIC_ADMIN_PATHS = ["/admin/login", "/admin/setup"];
+  if (!pathname.startsWith("/admin") || PUBLIC_ADMIN_PATHS.includes(pathname)) return NextResponse.next();
 
   if (!request.cookies.get(SESSION_COOKIE)) {
     const url = request.nextUrl.clone();
