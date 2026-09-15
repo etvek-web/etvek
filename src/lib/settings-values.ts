@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { SettingsValues } from "@/components/admin/settings-form";
+import { DEFAULT_PROGRAM_MESSAGE } from "@/lib/utils";
 
 export async function loadSettingsValues(): Promise<SettingsValues> {
   const s =
@@ -13,6 +14,7 @@ export async function loadSettingsValues(): Promise<SettingsValues> {
     contactEmail: s.contactEmail,
     whatsappNumber: s.whatsappNumber,
     whatsappMessage: s.whatsappMessage,
+    whatsappProgramMessage: s.whatsappProgramMessage?.trim() || DEFAULT_PROGRAM_MESSAGE,
     whatsappEnabled: s.whatsappEnabled,
     schedulerUrl: s.schedulerUrl,
     schedulerProvider: s.schedulerProvider,

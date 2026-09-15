@@ -15,7 +15,7 @@
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "admin:create": "tsx scripts/create-admin.ts",
-    "vercel-build": "node scripts/vercel-build.mjs"
+    "vercel-build": "tsx scripts/vercel-build.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

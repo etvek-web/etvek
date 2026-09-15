@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getCurrentUser } from "@/lib/auth";
 import {
-  IMAGE_MIME_TYPES,
+  DIRECT_UPLOAD_MIME_TYPES,
   MAX_INPUT_SIZE,
   MAX_OPTIMIZED_IMAGE_SIZE,
   VIDEO_MIME_TYPES,
-  buildPathname,
+  isSafePathname,
 } from "@/lib/media-constraints";
 
 export const runtime = "nodejs";
@@ -30,11 +30,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const payload = clientPayload ? (JSON.parse(clientPayload) as { folder?: string; kind?: string }) : {};
         const isVideo = payload.kind === "video";
+
+        // El pathname lo fija el cliente y esta API no permite reescribirlo, así que
+        // se valida y se rechaza el upload si no tiene la forma esperada.
+        if (!isSafePathname(pathname)) {
+          throw new Error("Ruta de archivo no permitida.");
+        }
+
         return {
-          allowedContentTypes: [...(isVideo ? VIDEO_MIME_TYPES : IMAGE_MIME_TYPES)],
+          allowedContentTypes: [...(isVideo ? VIDEO_MIME_TYPES : DIRECT_UPLOAD_MIME_TYPES)],
           maximumSizeInBytes: isVideo ? MAX_INPUT_SIZE * 2 : Math.max(MAX_OPTIMIZED_IMAGE_SIZE, 1024 * 1024),
           addRandomSuffix: true,
-          pathname: buildPathname(payload.folder ?? "media", pathname),
           tokenPayload: JSON.stringify({ userId: user.id }),
         };
       },

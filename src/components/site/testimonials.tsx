@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Quote } from "lucide-react";
+import { ChevronLeft, ChevronRight, PlayCircle, Quote } from "lucide-react";
 
 export type TestimonialData = {
   id: string;
@@ -44,6 +44,17 @@ export function TestimonialSlider({ items }: { items: TestimonialData[] }) {
             <p className="text-xs text-paper/50">
               {[current.role, current.project, current.country].filter(Boolean).join(" · ")}
             </p>
+            {current.videoUrl && (
+              <a
+                href={current.videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1.5 text-xs text-paper/55 hover:text-gold"
+              >
+                <PlayCircle className="size-3.5" strokeWidth={1.5} aria-hidden="true" />
+                Ver testimonio en video
+              </a>
+            )}
             {current.instagram && (
               <a
                 href={`https://instagram.com/${current.instagram.replace(/^@/, "")}`}

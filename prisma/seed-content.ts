@@ -4,6 +4,12 @@
  * Este contenido es únicamente el estado inicial: a partir del primer deploy se edita desde /admin.
  */
 
+/** Datos de contacto provistos por el cliente. Editables desde /admin. */
+export const CONTACT = {
+  whatsappNumber: "5493492280617",
+  contactEmail: "contacto@etvek.com",
+};
+
 export const COUNTRIES = [
   { name: "Argentina", code: "AR", dialCode: "+54", flag: "🇦🇷", timezone: "America/Argentina/Buenos_Aires" },
   { name: "Chile", code: "CL", dialCode: "+56", flag: "🇨🇱", timezone: "America/Santiago" },

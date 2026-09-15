@@ -2,16 +2,17 @@ import { Analytics } from "@vercel/analytics/next";
 import { Header } from "@/components/site/header";
 import { Footer } from "@/components/site/footer";
 import { WhatsAppFab } from "@/components/site/whatsapp-fab";
-import { getCountries, getNavigation, getSettings, getSocialLinks } from "@/lib/content";
-import { absoluteUrl, whatsappHref } from "@/lib/utils";
+import { getCountries, getNavigation, getPrograms, getSettings, getSocialLinks } from "@/lib/content";
+import { absoluteUrl, programMessage, whatsappHref } from "@/lib/utils";
 import { MaintenanceScreen } from "@/components/site/maintenance";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  const [settings, navigation, socials, countries] = await Promise.all([
+  const [settings, navigation, socials, countries, programs] = await Promise.all([
     getSettings(),
     getNavigation(),
     getSocialLinks(),
     getCountries(),
+    getPrograms(),
   ]);
 
   // Modo mantenimiento: se activa y desactiva desde /admin → Configuración.
@@ -26,6 +27,16 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       .map((n) => ({ id: n.id, label: n.label, href: n.href, isExternal: n.isExternal }));
 
   const wa = settings.whatsappEnabled ? whatsappHref(settings.whatsappNumber, settings.whatsappMessage) : null;
+
+  // El botón flotante contextualiza el mensaje cuando la visita llega desde un programa.
+  const programLinks = settings.whatsappEnabled
+    ? programs
+        .map((p) => ({
+          slug: p.slug,
+          href: whatsappHref(settings.whatsappNumber, programMessage(settings.whatsappProgramMessage, p.name)),
+        }))
+        .filter((p): p is { slug: string; href: string } => Boolean(p.href))
+    : [];
 
   // JSON-LD sólo con datos verificables del brief: nada de credenciales inventadas.
   const jsonLd = {
@@ -67,7 +78,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         countries={countries.map((c) => c.name)}
       />
 
-      {wa && <WhatsAppFab href={wa} label={settings.whatsappMessage} />}
+      {wa && <WhatsAppFab href={wa} label={settings.whatsappMessage} programLinks={programLinks} />}
       {settings.analyticsEnabled && <Analytics />}
     </>
   );

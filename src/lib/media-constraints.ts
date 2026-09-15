@@ -4,6 +4,7 @@ export const MAX_INPUT_SIZE = 25 * 1024 * 1024; // 25 MB antes de optimizar
 export const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
 export const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 export const MAX_OPTIMIZED_IMAGE_SIZE = 4 * 1024 * 1024; // red de seguridad post-compresión
+export const MAX_SVG_SIZE = 512 * 1024;
 
 export const IMAGE_MIME_TYPES = [
   "image/jpeg",
@@ -13,6 +14,13 @@ export const IMAGE_MIME_TYPES = [
   "image/gif",
   "image/svg+xml",
 ] as const;
+
+/**
+ * Tipos permitidos en el upload directo navegador → Blob.
+ * El SVG queda deliberadamente afuera: se sube por server action para poder
+ * sanearlo antes de almacenarlo (lib/svg-sanitize).
+ */
+export const DIRECT_UPLOAD_MIME_TYPES = IMAGE_MIME_TYPES.filter((m) => m !== "image/svg+xml");
 
 export const DOCUMENT_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
 export const VIDEO_MIME_TYPES = ["video/mp4", "video/webm"] as const;
@@ -62,4 +70,15 @@ export function buildPathname(folder: string, fileName: string) {
   const safeFolder = folder.replace(/[^a-z0-9/_-]/gi, "").replace(/^\/+|\/+$/g, "") || "media";
   const stamp = new Date().toISOString().slice(0, 7); // YYYY-MM
   return `${safeFolder}/${stamp}/${clean}`;
+}
+
+/**
+ * Valida el pathname que propone el cliente para un upload directo.
+ * `handleUpload` no permite reescribirlo desde el servidor, así que la única
+ * defensa real es rechazar lo que no tenga la forma `carpeta/AAAA-MM/archivo.ext`.
+ */
+export function isSafePathname(pathname: string) {
+  if (pathname.length > 200) return false;
+  if (pathname.includes("..") || pathname.startsWith("/")) return false;
+  return /^[a-z0-9_-]+\/\d{4}-\d{2}\/[a-zA-Z0-9._-]+$/.test(pathname);
 }

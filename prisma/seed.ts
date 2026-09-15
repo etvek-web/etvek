@@ -6,11 +6,13 @@
  * /admin. El contenido proviene del brief (Web ETVEK.pdf) y es el estado inicial editable.
  */
 import { Prisma, PrismaClient } from "@prisma/client";
-import { COUNTRIES, CREDENTIALS, NAVIGATION, PAYMENT_METHODS, PROGRAMS, TIMELINE } from "./seed-content";
+import { CONTACT, COUNTRIES, CREDENTIALS, NAVIGATION, PAYMENT_METHODS, PROGRAMS, TIMELINE } from "./seed-content";
 import { PAGES } from "./seed-pages";
 import { hashPassword, passwordIssues } from "../src/lib/password";
+import { resolveDatabaseUrl } from "../src/lib/database-url";
 
-const prisma = new PrismaClient();
+const resolved = resolveDatabaseUrl();
+const prisma = resolved ? new PrismaClient({ datasourceUrl: resolved.url }) : new PrismaClient();
 
 async function seedAdmin() {
   const email = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
@@ -51,19 +53,30 @@ async function seedAdmin() {
 }
 
 async function main() {
-  await prisma.siteSettings.upsert({
+  const settings = await prisma.siteSettings.upsert({
     where: { id: "singleton" },
     update: {},
     create: {
       id: "singleton",
       siteName: "ETVEK",
       tagline: "Estudio Técnico Vocal de Eliana Kestler",
-      contactEmail: "contacto@etvek.com",
+      contactEmail: CONTACT.contactEmail,
+      whatsappNumber: CONTACT.whatsappNumber,
       whatsappMessage: "Hola Eliana, me interesa solicitar una evaluación vocal en ETVEK.",
       legalReviewNote:
         "Los textos legales son un borrador técnico y requieren revisión de un asesor legal antes de su publicación definitiva.",
     },
   });
+
+  // Relleno de campos que quedaron vacíos en una instalación anterior.
+  // Sólo completa lo que está en blanco: nunca reemplaza un valor cargado desde /admin.
+  if (!settings.whatsappNumber?.trim()) {
+    await prisma.siteSettings.update({
+      where: { id: "singleton" },
+      data: { whatsappNumber: CONTACT.whatsappNumber },
+    });
+    console.log(`· WhatsApp inicial cargado: ${CONTACT.whatsappNumber}`);
+  }
 
   // Países y programas tienen clave natural estable (code / slug): chequeo por registro.
   for (const [i, c] of COUNTRIES.entries()) {

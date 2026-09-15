@@ -12,6 +12,8 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
     prisma.media.findMany({
       where: {
         deletedAt: null,
+        // Defensa en profundidad: la biblioteca muestra sólo archivos públicos.
+        visibility: "PUBLIC",
         ...(q
           ? {
               OR: [
@@ -25,7 +27,11 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
       orderBy: { createdAt: "desc" },
       take: 120,
     }),
-    prisma.media.aggregate({ _sum: { size: true, originalSize: true }, _count: true, where: { deletedAt: null } }),
+    prisma.media.aggregate({
+      _sum: { size: true, originalSize: true },
+      _count: true,
+      where: { deletedAt: null, visibility: "PUBLIC" },
+    }),
   ]);
 
   const stored = agg._sum.size ?? 0;

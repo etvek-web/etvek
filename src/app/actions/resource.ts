@@ -114,7 +114,12 @@ export async function deleteResource(resourceKey: string, id: string) {
 
   const model = delegate(resource.model);
   if (resource.softDelete) {
-    await model.update({ where: { id }, data: { deletedAt: new Date(), status: "ARCHIVED" } });
+    const current = await model.findUnique({ where: { id } });
+    // Si el modelo tiene slug único, se le agrega un sufijo al archivar: así el slug
+    // original vuelve a estar disponible en lugar de chocar con P2002.
+    const freedSlug =
+      current && typeof current.slug === "string" ? { slug: `${current.slug}-archivado-${Date.now().toString(36)}` } : {};
+    await model.update({ where: { id }, data: { deletedAt: new Date(), status: "ARCHIVED", ...freedSlug } });
   } else {
     await model.delete({ where: { id } });
   }
@@ -165,22 +170,35 @@ export async function duplicateResource(resourceKey: string, id: string) {
   return { ok: true as const, id: copy.id };
 }
 
-/** Reordena un registro moviéndolo una posición. */
+/**
+ * Reordena un registro moviéndolo una posición.
+ * Normaliza primero todos los `sortOrder` a su posición real: si quedaron valores
+ * duplicados o arbitrarios (se pueden escribir a mano en el formulario), un simple
+ * intercambio produciría un orden inestable. Los registros archivados no participan,
+ * porque tampoco aparecen en el listado.
+ */
 export async function moveResource(resourceKey: string, id: string, direction: -1 | 1) {
   const user = await requireUser();
   const resource = getResource(resourceKey);
   if (!resource?.sortable) return { error: "Este recurso no se puede reordenar." };
 
   const model = delegate(resource.model);
-  const items = await model.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, sortOrder: true } });
-  const index = items.findIndex((i: { id: string }) => i.id === id);
+  const items: { id: string }[] = await model.findMany({
+    where: resource.softDelete ? { deletedAt: null } : undefined,
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+
+  const index = items.findIndex((i) => i.id === id);
   const target = index + direction;
   if (index < 0 || target < 0 || target >= items.length) return { ok: true as const };
 
-  await prisma.$transaction([
-    model.update({ where: { id: items[index].id }, data: { sortOrder: target } }),
-    model.update({ where: { id: items[target].id }, data: { sortOrder: index } }),
-  ]);
+  const reordered = [...items];
+  [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+
+  await prisma.$transaction(
+    reordered.map((item, position) => model.update({ where: { id: item.id }, data: { sortOrder: position } })),
+  );
 
   await audit(user, "REORDER", resource.singular, id);
   revalidateContent(resource.tag);

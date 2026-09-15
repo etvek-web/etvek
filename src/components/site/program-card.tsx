@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, MessageCircle } from "lucide-react";
 import { Icon } from "@/components/site/icon";
 import { formatPrice } from "@/lib/utils";
 
@@ -22,6 +22,8 @@ export type ProgramCardData = {
   featured: boolean;
   image: { blobUrl: string; alt: string; width: number | null; height: number | null } | null;
   features: { id: string; label: string }[];
+  /** Enlace de WhatsApp con el mensaje contextual de este programa. */
+  whatsappHref: string | null;
 };
 
 export function ProgramCard({ program, priority = false }: { program: ProgramCardData; priority?: boolean }) {
@@ -79,7 +81,7 @@ export function ProgramCard({ program, priority = false }: { program: ProgramCar
           </p>
         )}
 
-        <div className="mt-auto pt-8">
+        <div className="mt-auto flex flex-wrap items-center gap-x-6 gap-y-3 pt-8">
           <Link
             href={href}
             className="inline-flex items-center gap-2 text-[0.7rem] uppercase tracking-[0.18em] text-paper transition-colors hover:text-gold"
@@ -87,6 +89,18 @@ export function ProgramCard({ program, priority = false }: { program: ProgramCar
             {program.ctaLabel ?? "Solicitar Admisión"}
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" strokeWidth={1.5} />
           </Link>
+
+          {program.whatsappHref && (
+            <a
+              href={program.whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-[0.7rem] uppercase tracking-[0.18em] text-paper/55 transition-colors hover:text-gold"
+            >
+              <MessageCircle className="size-4" strokeWidth={1.5} aria-hidden="true" />
+              Consultar por WhatsApp
+            </a>
+          )}
         </div>
       </div>
     </article>

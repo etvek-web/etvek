@@ -15,6 +15,7 @@ export type SettingsValues = {
   contactEmail: string;
   whatsappNumber: string | null;
   whatsappMessage: string;
+  whatsappProgramMessage: string;
   whatsappEnabled: boolean;
   schedulerUrl: string | null;
   schedulerProvider: string;
@@ -40,6 +41,7 @@ const GROUP_FIELDS: Record<SettingsGroup, (keyof SettingsValues)[]> = {
     "whatsappEnabled",
     "whatsappNumber",
     "whatsappMessage",
+    "whatsappProgramMessage",
     "analyticsEnabled",
     "maintenanceMode",
     "legalReviewNote",
@@ -95,6 +97,24 @@ export function SettingsForm({ values, group }: { values: SettingsValues; group:
             <div className="md:col-span-2">
               <Field label="Mensaje inicial de WhatsApp" required error={errors.whatsappMessage}>
                 {(id) => <Textarea id={id} name="whatsappMessage" defaultValue={values.whatsappMessage} rows={3} required />}
+              </Field>
+            </div>
+            <div className="md:col-span-2">
+              <Field
+                label="Mensaje de WhatsApp por programa"
+                required
+                error={errors.whatsappProgramMessage}
+                hint="Se usa cuando la persona llega desde un programa concreto. {programa} se reemplaza por el nombre del plan."
+              >
+                {(id) => (
+                  <Textarea
+                    id={id}
+                    name="whatsappProgramMessage"
+                    defaultValue={values.whatsappProgramMessage}
+                    rows={2}
+                    required
+                  />
+                )}
               </Field>
             </div>
             <div className="md:col-span-2 space-y-4">

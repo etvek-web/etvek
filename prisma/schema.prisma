@@ -486,6 +486,8 @@ model SiteSettings {
   contactEmail     String   @default("contacto@etvek.com")
   whatsappNumber   String?
   whatsappMessage  String   @default("Hola Eliana, me interesa solicitar una evaluación vocal en ETVEK.")
+  /// Mensaje contextual por programa. `{programa}` se reemplaza por el nombre del plan.
+  whatsappProgramMessage String @default("Hola Eliana, me interesa el programa de {programa}.")
   whatsappEnabled  Boolean  @default(true)
   schedulerUrl     String?
   schedulerProvider String  @default("calendly")

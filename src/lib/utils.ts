@@ -41,6 +41,20 @@ export function formatDate(date: Date | string, opts?: Intl.DateTimeFormatOption
   return new Intl.DateTimeFormat("es-AR", opts ?? { dateStyle: "medium", timeStyle: "short" }).format(d);
 }
 
+export const DEFAULT_PROGRAM_MESSAGE = "Hola Eliana, me interesa el programa de {programa}.";
+
+/**
+ * Reemplaza {programa} en la plantilla del mensaje de WhatsApp.
+ * Tolera una plantilla ausente: el valor viene de la base y puede faltar en una
+ * entrada de caché anterior a que la columna existiera.
+ */
+export function programMessage(template: string | null | undefined, programName: string) {
+  const source = template?.trim() || DEFAULT_PROGRAM_MESSAGE;
+  return source.includes("{programa}")
+    ? source.replaceAll("{programa}", programName)
+    : `${source} ${programName}`.trim();
+}
+
 /** Construye el href de WhatsApp con mensaje contextual. */
 export function whatsappHref(number: string | null | undefined, message: string) {
   const digits = (number ?? "").replace(/\D/g, "");

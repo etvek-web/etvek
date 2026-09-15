@@ -124,7 +124,9 @@ hasheada con `scrypt` + salt aleatorio. Nunca se almacena en texto plano.
 
 Dos ámbitos separados:
 
-- **Público** (`media/`, `hero/`, `og/`…): fotografías del sitio, servidas por `next/image`.
+- **Público** (`media/`, `hero/`, `og/`…): fotografías del sitio, servidas por `next/image`. Los SVG no
+  usan el upload directo: se suben por server action para poder **sanearlos** (se eliminan scripts,
+  handlers `on*` y referencias externas) antes de almacenarlos.
 - **Privado** (`private/`): comprobantes de pago y documentación administrativa. La URL nunca llega al
   navegador; el único acceso es `GET /api/private-files/[id]`, que verifica la sesión, registra la lectura
   en el log de auditoría y hace *proxy* del contenido con `Cache-Control: private, no-store`.
@@ -156,7 +158,9 @@ Ahorro:     93 %
 ```
 
 Otros controles: deduplicación por SHA-256 del archivo optimizado, saneamiento de SVG, verificación de
-*magic bytes* en los comprobantes y bloqueo de borrado de cualquier archivo todavía referenciado.
+*magic bytes* en los comprobantes, validación del pathname propuesto por el navegador (la API de Blob
+no permite reescribirlo desde el servidor, así que se rechaza el upload si no tiene la forma esperada) y
+bloqueo de borrado de cualquier archivo todavía referenciado.
 
 ---
 
@@ -336,7 +340,14 @@ usable. Casos:
   nombre. Copiá del panel de Prisma Postgres la connection string que empieza con `postgres://` y
   guardala como `DATABASE_URL`.
 
-El prefijo del store no es un problema: `etvek_POSTGRES_URL` y similares se detectan solos.
+El prefijo del store no es un problema: `etvek_POSTGRES_URL` y similares se detectan solos, tanto en el
+build como en runtime — `src/lib/database-url.ts` es la única fuente de verdad y la usan el script de
+build, el cliente de Prisma y el seed.
+
+**`Environment variable not found: DATABASE_URL` en runtime (no en el build)**
+Ocurría cuando la conexión sólo existía como variable prefijada: el build la reescribía, pero las
+funciones en runtime no veían esa reescritura. El cliente de Prisma ahora resuelve la conexión por su
+cuenta, así que no depende del nombre de la variable.
 
 **`sitemap.xml` o los canonical apuntan a `localhost`**
 `robots.txt` y `sitemap.xml` se prerenderizan durante el build, así que toman la base de ese momento.

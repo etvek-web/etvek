@@ -11,7 +11,7 @@ import {
   getTimeline,
 } from "@/lib/content";
 import { SectionRenderer, type RenderContext, type Section } from "@/components/site/section-renderer";
-import { whatsappHref } from "@/lib/utils";
+import { programMessage, whatsappHref } from "@/lib/utils";
 
 /** Render declarativo de una página del CMS: las secciones y su orden vienen de la base. */
 export async function PageView({ slug }: { slug: string }) {
@@ -29,6 +29,9 @@ export async function PageView({ slug }: { slug: string }) {
       getTimeline(),
       getPaymentMethods(),
     ]);
+
+  const waEnabled = settings.whatsappEnabled;
+  const waFor = (message: string) => (waEnabled ? whatsappHref(settings.whatsappNumber, message) : null);
 
   const ctxBase: Omit<RenderContext, "isFirstSection"> = {
     programs: programs.map((p) => ({
@@ -49,6 +52,7 @@ export async function PageView({ slug }: { slug: string }) {
       featured: p.featured,
       image: p.image ? { blobUrl: p.image.blobUrl, alt: p.image.alt, width: p.image.width, height: p.image.height } : null,
       features: p.features.map((f) => ({ id: f.id, label: f.label })),
+      whatsappHref: waFor(programMessage(settings.whatsappProgramMessage, p.name)),
     })),
     credentials: credentials.map((c) => ({ id: c.id, label: c.label, detail: c.detail, icon: c.icon })),
     countries: countries.map((c) => ({
@@ -107,9 +111,7 @@ export async function PageView({ slug }: { slug: string }) {
       provider: settings.schedulerProvider,
       enabled: settings.schedulerEnabled && Boolean(settings.schedulerUrl),
     },
-    whatsappHref: settings.whatsappEnabled
-      ? whatsappHref(settings.whatsappNumber, settings.whatsappMessage)
-      : null,
+    whatsappHref: waFor(settings.whatsappMessage),
   };
 
   return (

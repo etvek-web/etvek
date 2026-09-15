@@ -4,9 +4,13 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
-import { deleteBlob } from "@/lib/blob";
+import { createHash } from "node:crypto";
+import { deleteBlob, putPublic } from "@/lib/blob";
 import { mediaUpdateSchema } from "@/lib/validation";
 import { revalidateContent } from "@/lib/cache";
+import { buildPathname, MAX_SVG_SIZE, safeFileName } from "@/lib/media-constraints";
+import { sanitizeSvg } from "@/lib/svg-sanitize";
+import { formatBytes } from "@/lib/utils";
 
 type RegisterInput = {
   blobUrl: string;
@@ -178,4 +182,55 @@ export async function getMediaById(id: string): Promise<MediaListItem | null> {
       size: true,
     },
   });
+}
+
+/**
+ * Carga de SVG. No pasa por el upload directo a Blob: el SVG se sanea en el servidor
+ * (se eliminan scripts, handlers y referencias externas) y sólo entonces se almacena.
+ * Son archivos chicos, así que atravesar una Function no tiene costo relevante.
+ */
+export async function uploadSvg(formData: FormData) {
+  const user = await requireUser();
+
+  const file = formData.get("file");
+  const alt = String(formData.get("alt") ?? "").slice(0, 300);
+  const folder = String(formData.get("folder") ?? "media");
+
+  if (!(file instanceof File) || file.size === 0) return { error: "No se recibió el archivo." };
+  if (file.size > MAX_SVG_SIZE) {
+    return { error: `El SVG pesa ${formatBytes(file.size)} y el máximo es ${formatBytes(MAX_SVG_SIZE)}.` };
+  }
+
+  const source = await file.text();
+  const sanitized = sanitizeSvg(source);
+  if (!sanitized.ok) return { error: sanitized.reason };
+
+  const bytes = Buffer.from(sanitized.svg, "utf8");
+  const hash = createHash("sha256").update(bytes).digest("hex");
+
+  const duplicate = await prisma.media.findFirst({ where: { hash, deletedAt: null, size: bytes.byteLength } });
+  if (duplicate) {
+    await audit(user, "MEDIA_DEDUPED", "Media", duplicate.id);
+    return { id: duplicate.id, duplicated: true as const };
+  }
+
+  const blob = await putPublic(buildPathname(folder, file.name), bytes, "image/svg+xml");
+
+  const media = await prisma.media.create({
+    data: {
+      blobUrl: blob.url,
+      blobPathname: blob.pathname,
+      fileName: safeFileName(file.name),
+      mimeType: "image/svg+xml",
+      size: bytes.byteLength,
+      originalSize: file.size,
+      hash,
+      alt,
+      folder,
+    },
+  });
+
+  await audit(user, "CREATE", "Media", media.id, { fileName: media.fileName, sanitizedSvg: true });
+  revalidatePath("/admin/media");
+  return { id: media.id, duplicated: false as const };
 }

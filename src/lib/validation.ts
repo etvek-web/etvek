@@ -218,6 +218,7 @@ export const settingsSchema = z.object({
   contactEmail: z.string().trim().toLowerCase().email(),
   whatsappNumber: optionalText,
   whatsappMessage: z.string().trim().min(5).max(300),
+  whatsappProgramMessage: z.string().trim().min(5).max(300),
   whatsappEnabled: z.coerce.boolean().default(true),
   schedulerUrl: optionalUrl,
   schedulerProvider: z.enum(["calendly", "savvycal"]).default("calendly"),
@@ -245,16 +246,6 @@ export const admissionUpdateSchema = z.object({
 
 export const noteSchema = z.object({
   body: z.string().trim().min(1, "La nota no puede estar vacía.").max(4000),
-});
-
-export const paymentSchema = z.object({
-  admissionId: optionalText,
-  programId: optionalText,
-  methodId: optionalText,
-  currency: currencyEnum,
-  amount: optionalInt,
-  reference: optionalText,
-  status: paymentStatusEnum.default("PENDIENTE"),
 });
 
 export const accountSchema = z
