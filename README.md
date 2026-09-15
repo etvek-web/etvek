@@ -177,8 +177,10 @@ funciona desde el celular.
 2. **Storage → Prisma Postgres** (Marketplace): se vincula al proyecto e inyecta `DATABASE_URL`.
 3. **Storage → Blob**: se vincula e inyecta `BLOB_READ_WRITE_TOKEN`.
 4. Cargar `AUTH_SECRET` y `NEXT_PUBLIC_SITE_URL` en *Environment Variables*.
-5. Deploy. El script `vercel-build` ejecuta `prisma generate && prisma migrate deploy && next build`,
-   así que las migraciones se aplican solas en cada deploy.
+5. Deploy. El script `vercel-build` (`scripts/vercel-build.mjs`) resuelve la conexión, aplica las
+   migraciones y compila. Acepta `DATABASE_URL`, `PRISMA_DATABASE_URL`, `POSTGRES_URL_NON_POOLING`,
+   `POSTGRES_URL` o `POSTGRES_PRISMA_URL` — la primera que tenga valor, priorizando la conexión directa
+   sobre la *pooled*. Si ninguna existe, el build falla con un mensaje que indica qué configurar.
 6. Ejecutar el seed una vez: `npm run db:seed` con `DATABASE_URL` apuntando a producción.
 7. Crear la administradora: `npm run admin:create`.
 
@@ -294,9 +296,21 @@ Hay un valor único repetido: slug de programa, código ISO de país o email de 
 Verificá que `DATABASE_URL` apunte a una conexión con permisos de DDL y sin pooling. Si el proveedor te
 da una URL *pooled* y otra *direct*, usá la direct: `prisma migrate deploy` corre en el build.
 
-**`P1012: You must provide a nonempty direct URL`**
-Quedó una variable de entorno vacía en Vercel apuntando a un `directUrl` del schema. El schema actual
-sólo usa `DATABASE_URL`; borrá cualquier `DIRECT_DATABASE_URL` vacía del proyecto.
+**`P1012: ... resolved to an empty string`**
+La variable existe en Vercel pero está vacía, y Prisma trata la cadena vacía como error, no como
+ausente. Revisá *Settings → Environment Variables*: una variable vacía cuenta como mal configurada.
+Ojo con los entornos: Production, Preview y Development se cargan por separado, así que una variable
+puesta sólo en Production no está disponible en un Preview.
+
+**`No hay conexión a la base de datos`**
+Lo imprime `scripts/vercel-build.mjs` cuando ninguna de las variables de conexión tiene valor. La causa
+habitual es que el store de Postgres no quedó vinculado al proyecto: *Storage → Prisma Postgres →
+Connect Project*. Después del vínculo hay que **redeployar**: las variables nuevas no se inyectan en un
+deploy ya iniciado.
+
+**`usa el protocolo prisma+postgres://`**
+Es la cadena de Accelerate. Este proyecto conecta directo a Postgres: copiá del dashboard de Prisma
+Postgres la connection string que empieza con `postgres://` y guardala como `DATABASE_URL`.
 
 **Vercel deploya la rama equivocada**
 *Settings → Git → Production Branch* debe decir `main`.
