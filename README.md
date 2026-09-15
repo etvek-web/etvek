@@ -59,8 +59,7 @@ Todas están documentadas en `.env.example`.
 
 | Variable | Obligatoria | Para qué |
 |---|---|---|
-| `DATABASE_URL` | Sí | Conexión a Prisma Postgres. |
-| `DIRECT_DATABASE_URL` | No | Conexión directa (sin pooler) para migraciones. |
+| `DATABASE_URL` | Sí | Conexión a Prisma Postgres. Si el proveedor ofrece URL *pooled* y *direct*, usá la direct: las migraciones corren en el build. |
 | `AUTH_SECRET` | Sí | Firma de las cookies de sesión del panel. Mínimo 32 caracteres. |
 | `BLOB_READ_WRITE_TOKEN` | Sí | Lectura/escritura en Vercel Blob. |
 | `NEXT_PUBLIC_SITE_URL` | Recomendada | Canonical, sitemap y Open Graph. |
@@ -292,4 +291,12 @@ Está referenciada por alguna sección, programa, testimonio o metadato SEO. El 
 Hay un valor único repetido: slug de programa, código ISO de país o email de usuaria.
 
 **Error de migraciones en el deploy**
-Verificá que `DATABASE_URL` (o `DIRECT_DATABASE_URL`) apunte a una conexión con permisos de DDL.
+Verificá que `DATABASE_URL` apunte a una conexión con permisos de DDL y sin pooling. Si el proveedor te
+da una URL *pooled* y otra *direct*, usá la direct: `prisma migrate deploy` corre en el build.
+
+**`P1012: You must provide a nonempty direct URL`**
+Quedó una variable de entorno vacía en Vercel apuntando a un `directUrl` del schema. El schema actual
+sólo usa `DATABASE_URL`; borrá cualquier `DIRECT_DATABASE_URL` vacía del proyecto.
+
+**Vercel deploya la rama equivocada**
+*Settings → Git → Production Branch* debe decir `main`.
