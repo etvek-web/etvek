@@ -297,6 +297,11 @@ Falta la variable o tiene menos de 32 caracteres. Generala con `openssl rand -ba
 **`BLOB_READ_WRITE_TOKEN no está configurado`**
 El store de Blob no está vinculado al proyecto en Vercel, o falta la variable en local.
 
+**`Application error: a server-side exception has occurred` al iniciar sesión**
+Suele ser `AUTH_SECRET` faltante o de menos de 32 caracteres. Desde esta versión el panel muestra una
+pantalla que nombra la variable y el problema en lugar de un 500 opaco; el sitio público no se afecta.
+Generá el valor con `openssl rand -base64 48`, cargalo en Vercel y redeployá.
+
 **El panel redirige siempre a `/admin/login`**
 La cookie de sesión no se está guardando. En producción requiere HTTPS; si cambiaste `AUTH_SECRET`,
 todas las sesiones existentes quedan invalidadas: volvé a iniciar sesión.

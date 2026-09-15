@@ -5,6 +5,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@prisma/client";
+import { AUTH_SECRET_MIN_LENGTH, authSecretIssue } from "@/lib/config-check";
 
 import { SESSION_COOKIE } from "@/lib/constants";
 
@@ -12,9 +13,11 @@ export { SESSION_COOKIE };
 const SESSION_TTL_DAYS = 7;
 
 function secret() {
-  const raw = process.env.AUTH_SECRET;
-  if (!raw || raw.length < 32) {
-    throw new Error("AUTH_SECRET no está definido o es demasiado corto (mínimo 32 caracteres).");
+  const raw = process.env.AUTH_SECRET?.trim();
+  if (!raw || raw.length < AUTH_SECRET_MIN_LENGTH) {
+    throw new Error(
+      `AUTH_SECRET no está definido o es demasiado corto (mínimo ${AUTH_SECRET_MIN_LENGTH} caracteres).`,
+    );
   }
   return new TextEncoder().encode(raw);
 }
@@ -65,6 +68,10 @@ export function hashIp(ip: string | null | undefined) {
 
 /** Lee y valida la sesión. Cacheada por request. */
 export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
+  // Sin un AUTH_SECRET válido ninguna sesión puede verificarse: devolvemos null en
+  // lugar de lanzar, para que las páginas muestren el aviso de configuración y no un 500.
+  if (authSecretIssue()) return null;
+
   const store = await cookies();
   const jwt = store.get(SESSION_COOKIE)?.value;
   if (!jwt) return null;

@@ -8,10 +8,19 @@ import { verifyPassword, hashPassword, passwordIssues } from "@/lib/password";
 import { loginSchema, accountSchema } from "@/lib/validation";
 import { rateLimit } from "@/lib/rate-limit";
 import { audit } from "@/lib/audit";
+import { adminConfigIssues } from "@/lib/config-check";
 
 export type LoginState = { status: "idle" } | { status: "error"; message: string };
 
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
+  const issues = adminConfigIssues();
+  if (issues.length) {
+    return {
+      status: "error",
+      message: `Falta configurar el entorno: ${issues.map((i) => i.variable).join(", ")}.`,
+    };
+  }
+
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { status: "error", message: "Ingresá un email y una contraseña válidos." };
 

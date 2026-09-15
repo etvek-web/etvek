@@ -7,6 +7,7 @@ import { createSession, hashIp } from "@/lib/auth";
 import { hashPassword, passwordIssues } from "@/lib/password";
 import { rateLimit } from "@/lib/rate-limit";
 import { audit } from "@/lib/audit";
+import { adminConfigIssues } from "@/lib/config-check";
 import { z } from "zod";
 
 const setupSchema = z
@@ -32,6 +33,14 @@ export type SetupState = { status: "idle" } | { status: "error"; message: string
  * para poder completar el alta sin una terminal con acceso a la base.
  */
 export async function createFirstAdmin(_prev: SetupState, formData: FormData): Promise<SetupState> {
+  const configIssues = adminConfigIssues();
+  if (configIssues.length) {
+    return {
+      status: "error",
+      message: `Falta configurar el entorno: ${configIssues.map((i) => i.variable).join(", ")}.`,
+    };
+  }
+
   const h = await headers();
   const limited = await rateLimit(`setup:${hashIp(h.get("x-forwarded-for")) ?? "anon"}`, 5, 60 * 60 * 1000);
   if (!limited.ok) return { status: "error", message: "Demasiados intentos. Esperá unos minutos." };

@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { SetupForm } from "@/components/admin/setup-form";
+import { adminConfigIssues } from "@/lib/config-check";
+import { ConfigNotice } from "@/components/admin/config-notice";
 import { AcousticWave } from "@/components/site/acoustic-wave";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +10,9 @@ export const metadata = { title: "Primer acceso — Panel ETVEK", robots: { inde
 
 /** Disponible únicamente mientras no existe ninguna cuenta. Después redirige al login. */
 export default async function SetupPage() {
+  const issues = adminConfigIssues();
+  if (issues.length) return <ConfigNotice issues={issues} />;
+
   if ((await prisma.user.count()) > 0) redirect("/admin/login");
 
   return (

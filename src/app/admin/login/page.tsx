@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { adminConfigIssues } from "@/lib/config-check";
+import { ConfigNotice } from "@/components/admin/config-notice";
 import { prisma } from "@/lib/prisma";
 import { LoginForm } from "@/components/admin/login-form";
 import { AcousticWave } from "@/components/site/acoustic-wave";
@@ -8,6 +10,9 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Ingresar — Panel ETVEK", robots: { index: false, follow: false } };
 
 export default async function LoginPage() {
+  const issues = adminConfigIssues();
+  if (issues.length) return <ConfigNotice issues={issues} />;
+
   if (await getCurrentUser()) redirect("/admin");
   // Sin ninguna cuenta creada, el ingreso no sirve: mandamos al alta inicial.
   if ((await prisma.user.count()) === 0) redirect("/admin/setup");
