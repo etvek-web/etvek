@@ -61,7 +61,7 @@ Todas están documentadas en `.env.example`.
 |---|---|---|
 | `DATABASE_URL` | Sí | Conexión a Prisma Postgres. Si el proveedor ofrece URL *pooled* y *direct*, usá la direct: las migraciones corren en el build. |
 | `AUTH_SECRET` | Sí | Firma de las cookies de sesión del panel. Mínimo 32 caracteres. |
-| `BLOB_READ_WRITE_TOKEN` | Sí | Lectura/escritura en Vercel Blob. |
+| `BLOB_READ_WRITE_TOKEN` | Sí | Lectura/escritura en Vercel Blob. También se acepta cualquier variable terminada en `_READ_WRITE_TOKEN`, porque la integración puede prefijarlas con el nombre del store. |
 | `NEXT_PUBLIC_SITE_URL` | Recomendada | Canonical, sitemap y Open Graph. Si falta o queda vacía se usa `VERCEL_PROJECT_PRODUCTION_URL`, y en local `http://localhost:3000`. Acepta el dominio sin protocolo. |
 | `RESEND_API_KEY` / `NOTIFICATIONS_FROM` | No | Aviso por email de nuevas admisiones. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | No | Sólo para crear la administradora vía seed. |
@@ -390,6 +390,12 @@ build, el cliente de Prisma y el seed.
 Ocurría cuando la conexión sólo existía como variable prefijada: el build la reescribía, pero las
 funciones en runtime no veían esa reescritura. El cliente de Prisma ahora resuelve la conexión por su
 cuenta, así que no depende del nombre de la variable.
+
+**`Vercel Blob: Failed to retrieve the client token` al subir un archivo**
+La librería de Blob reporta así cualquier fallo del endpoint que autoriza la subida y esconde la causa.
+Desde esta versión el panel consulta antes ese endpoint y muestra el motivo real. La causa habitual es
+que `BLOB_READ_WRITE_TOKEN` está creada pero vacía: revisá *Storage → Blob → Connect Project* y que la
+variable tenga valor, y redeployá.
 
 **`sitemap.xml` o los canonical apuntan a `localhost`**
 `robots.txt` y `sitemap.xml` se prerenderizan durante el build, así que toman la base de ese momento.

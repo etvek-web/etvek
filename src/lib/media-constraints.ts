@@ -81,10 +81,30 @@ export function buildPathname(folder: string, fileName: string) {
  * `handleUpload` no permite reescribirlo desde el servidor, así que la única
  * defensa real es rechazar lo que no tenga la forma `carpeta/AAAA-MM/archivo.ext`.
  */
+/**
+ * Valida el pathname que propone el cliente para un upload directo.
+ * `handleUpload` no permite reescribirlo desde el servidor, así que acá se
+ * rechaza cualquier ruta peligrosa.
+ *
+ * Comprueba lo que importa —nada de traversal, caracteres acotados, longitud y
+ * profundidad razonables— sin exigir una convención de carpetas: obligar a una
+ * forma exacta hacía fallar subidas legítimas sin aportar seguridad.
+ */
 export function isSafePathname(pathname: string) {
-  if (pathname.length > 200) return false;
-  if (pathname.includes("..") || pathname.startsWith("/")) return false;
-  return /^[a-z0-9_-]+\/\d{4}-\d{2}\/[a-zA-Z0-9._-]+$/.test(pathname);
+  if (!pathname || pathname.length > 200) return false;
+  if (pathname.startsWith("/") || pathname.endsWith("/")) return false;
+
+  const segments = pathname.split("/");
+  if (segments.length > 4) return false;
+
+  return segments.every(
+    (segment) =>
+      segment.length > 0 &&
+      segment.length <= 120 &&
+      segment !== "." &&
+      segment !== ".." &&
+      /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(segment),
+  );
 }
 
 export function isAllowedModel(mime: string, fileName: string) {

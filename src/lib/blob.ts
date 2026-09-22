@@ -1,5 +1,6 @@
 import "server-only";
 import { put, del, head } from "@vercel/blob";
+import { missingBlobTokenMessage, resolveBlobToken } from "@/lib/blob-token";
 
 /**
  * Dos ámbitos de almacenamiento:
@@ -11,9 +12,9 @@ import { put, del, head } from "@vercel/blob";
 export const PRIVATE_PREFIX = "private";
 
 function token() {
-  const t = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!t) throw new Error("BLOB_READ_WRITE_TOKEN no está configurado.");
-  return t;
+  const resolved = resolveBlobToken();
+  if (!resolved) throw new Error(missingBlobTokenMessage());
+  return resolved.token;
 }
 
 export async function putPublic(pathname: string, body: Blob | Buffer | string, contentType?: string) {

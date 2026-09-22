@@ -8,6 +8,18 @@ import { Input, Label } from "@/components/ui/field";
 import { MAX_MODEL_SIZE, buildPathname, isAllowedModel } from "@/lib/media-constraints";
 import { formatBytes } from "@/lib/utils";
 
+
+/** La librería de Blob oculta la causa: preguntamos antes para poder explicarla. */
+async function blobPreflight(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/admin/blob-upload", { method: "GET" });
+    const data = (await res.json()) as { ready?: boolean; reason?: string };
+    return data.ready ? null : (data.reason ?? "El almacenamiento de archivos no está disponible.");
+  } catch {
+    return null; // Si el preflight falla, dejamos que lo intente igual.
+  }
+}
+
 type Status = { kind: "idle" } | { kind: "uploading" } | { kind: "error"; message: string };
 
 /**
@@ -33,6 +45,13 @@ export function ModelUploader({ name, defaultValue }: { name: string; defaultVal
     }
 
     setStatus({ kind: "uploading" });
+
+    const blocked = await blobPreflight();
+    if (blocked) {
+      setStatus({ kind: "error", message: blocked });
+      return;
+    }
+
     try {
       const blob = await upload(buildPathname("modelos", file.name), file, {
         access: "public",

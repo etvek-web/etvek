@@ -7,8 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/field";
 import { optimizeImage, type OptimizedImage } from "@/lib/image-optimize";
 import { registerMedia } from "@/app/actions/media";
-import { MAX_INPUT_SIZE, PRESETS, isAllowedImage, type MediaPreset } from "@/lib/media-constraints";
+import { MAX_INPUT_SIZE, PRESETS, buildPathname, isAllowedImage, type MediaPreset } from "@/lib/media-constraints";
 import { formatBytes, savingsPercent } from "@/lib/utils";
+
+
+/** La librería de Blob oculta la causa: preguntamos antes para poder explicarla. */
+async function blobPreflight(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/admin/blob-upload", { method: "GET" });
+    const data = (await res.json()) as { ready?: boolean; reason?: string };
+    return data.ready ? null : (data.reason ?? "El almacenamiento de archivos no está disponible.");
+  } catch {
+    return null; // Si el preflight falla, dejamos que lo intente igual.
+  }
+}
 
 type Phase =
   | { kind: "idle" }
@@ -68,8 +80,14 @@ export function MediaUploader({
     const { result } = phase;
     setPhase({ kind: "uploading" });
 
+    const blocked = await blobPreflight();
+    if (blocked) {
+      setPhase({ kind: "error", message: blocked });
+      return;
+    }
+
     try {
-      const blob = await upload(result.file.name, result.file, {
+      const blob = await upload(buildPathname(folder, result.file.name), result.file, {
         access: "public",
         handleUploadUrl: "/api/admin/blob-upload",
         contentType: result.mimeType,
