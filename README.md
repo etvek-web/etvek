@@ -199,7 +199,13 @@ npx @gltf-transform/cli optimize simplificado.glb web.glb \
 
 Medición real sobre el modelo de laringe del sitio: **27,66 MB → 1,11 MB** (96 %), sin diferencia
 visible al tamaño en que se muestra. Cuidado con `-si` por debajo de 0,2: la malla se rompe y aparecen
-agujeros. El visor ya trae el decodificador de meshopt, así que los modelos comprimidos se cargan solos.
+agujeros.
+
+El visor acepta las dos compresiones habituales, **meshopt** y **Draco**, así que sirve cualquier `.glb`
+optimizado sin importar la herramienta. El decodificador de Draco se sirve desde `/draco` —copiado de
+`three` a `public/`, no desde un CDN externo— y sólo se descarga si el modelo realmente lo usa. Si un
+modelo falla al cargar, el visor vuelve a la pieza dibujada por código y **deja el motivo en la consola**:
+un fallo silencioso hace parecer que no pasó nada.
 
 ## El panel `/admin`
 

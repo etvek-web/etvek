@@ -66,16 +66,22 @@ export default function LarynxCanvas({ modelUrl }: { modelUrl?: string | null })
 
     // Si hay un modelo propio cargado desde /admin, reemplaza al procedimental.
     let cancelled = false;
+    let draco: import("three/examples/jsm/loaders/DRACOLoader.js").DRACOLoader | null = null;
     if (modelUrl) {
       void (async () => {
         try {
-          const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([
+          const [{ GLTFLoader }, { DRACOLoader }, { MeshoptDecoder }] = await Promise.all([
             import("three/examples/jsm/loaders/GLTFLoader.js"),
+            import("three/examples/jsm/loaders/DRACOLoader.js"),
             import("three/examples/jsm/libs/meshopt_decoder.module.js"),
           ]);
 
-          // Los modelos se sirven comprimidos con meshopt para que pesen poco.
-          const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+          // Los modelos optimizados llegan comprimidos con meshopt o con Draco,
+          // según la herramienta que se haya usado: se soportan los dos.
+          // El decodificador de Draco se sirve desde /draco, no desde un CDN externo,
+          // y sólo se descarga si el modelo realmente lo necesita.
+          draco = new DRACOLoader().setDecoderPath("/draco/");
+          const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).setDRACOLoader(draco);
           const gltf = await loader.loadAsync(modelUrl);
           if (cancelled) return;
 
@@ -85,7 +91,8 @@ export default function LarynxCanvas({ modelUrl }: { modelUrl?: string | null })
           const center = new THREE.Vector3();
           box.getSize(size);
           box.getCenter(center);
-          const scale = 3.9 / Math.max(size.x, size.y, size.z || 1);
+          // 3.4 deja margen: el alto visible a esta distancia es ~3.7 unidades.
+          const scale = 3.4 / Math.max(size.x, size.y, size.z || 1);
           gltf.scene.scale.setScalar(scale);
           gltf.scene.position.sub(center.multiplyScalar(scale));
 
@@ -101,8 +108,13 @@ export default function LarynxCanvas({ modelUrl }: { modelUrl?: string | null })
             });
           };
           pivot.add(gltf.scene);
-        } catch {
-          // El modelo propio falló: se queda la pieza procedimental.
+        } catch (error) {
+          // El modelo propio falló: se queda la pieza procedimental, pero el motivo
+          // tiene que quedar visible o el problema parece "no pasa nada".
+          console.error(
+            "[ETVEK] No se pudo cargar el modelo 3D del hero; se usa la pieza por defecto.",
+            error,
+          );
         }
       })();
     }
@@ -226,6 +238,7 @@ export default function LarynxCanvas({ modelUrl }: { modelUrl?: string | null })
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
       renderer.domElement.removeEventListener("pointercancel", onPointerUp);
       disposeModel();
+      draco?.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
