@@ -61,7 +61,7 @@ Todas están documentadas en `.env.example`.
 |---|---|---|
 | `DATABASE_URL` | Sí | Conexión a Prisma Postgres. Si el proveedor ofrece URL *pooled* y *direct*, usá la direct: las migraciones corren en el build. |
 | `AUTH_SECRET` | Sí | Firma de las cookies de sesión del panel. Mínimo 32 caracteres. |
-| `BLOB_READ_WRITE_TOKEN` | Sí | Lectura/escritura en Vercel Blob. También se acepta cualquier variable terminada en `_READ_WRITE_TOKEN`, porque la integración puede prefijarlas con el nombre del store. |
+| `BLOB_READ_WRITE_TOKEN` | Depende | Lectura/escritura en Vercel Blob. Se acepta también cualquier variable terminada en `_READ_WRITE_TOKEN` (la integración puede prefijarlas con el nombre del store). No hace falta si el proyecto autentica por OIDC: en ese caso alcanza con `VERCEL_OIDC_TOKEN`, que Vercel inyecta solo. |
 | `NEXT_PUBLIC_SITE_URL` | Recomendada | Canonical, sitemap y Open Graph. Si falta o queda vacía se usa `VERCEL_PROJECT_PRODUCTION_URL`, y en local `http://localhost:3000`. Acepta el dominio sin protocolo. |
 | `RESEND_API_KEY` / `NOTIFICATIONS_FROM` | No | Aviso por email de nuevas admisiones. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | No | Sólo para crear la administradora vía seed. |
@@ -393,9 +393,18 @@ cuenta, así que no depende del nombre de la variable.
 
 **`Vercel Blob: Failed to retrieve the client token` al subir un archivo**
 La librería de Blob reporta así cualquier fallo del endpoint que autoriza la subida y esconde la causa.
-Desde esta versión el panel consulta antes ese endpoint y muestra el motivo real. La causa habitual es
-que `BLOB_READ_WRITE_TOKEN` está creada pero vacía: revisá *Storage → Blob → Connect Project* y que la
-variable tenga valor, y redeployá.
+Desde esta versión el panel consulta antes ese endpoint y muestra el motivo real.
+
+La causa más común es una variable `BLOB_READ_WRITE_TOKEN` **creada a mano y vacía**: Vercel no permite
+que la integración inyecte una variable con un nombre que ya existe, así que al conectar el store el
+token nunca se carga. El síntoma es un store conectado cuyas variables son sólo `*_STORE_ID` y
+`*_WEBHOOK_PUBLIC_KEY`. Se arregla borrando esa variable vacía y volviendo a conectar el store.
+
+**El store de Blob es privado y las imágenes no cargan**
+Los blobs privados viven en `<store>.private.blob.vercel-storage.com` y exigen cabecera de
+autorización, así que `next/image` no puede leerlos. Las fotos del sitio necesitan un store con
+`access: public`. Los comprobantes siguen siendo privados por otra vía: pathname con sufijo aleatorio,
+URL nunca publicada y acceso sólo por `/api/private-files/[id]` con sesión válida.
 
 **`sitemap.xml` o los canonical apuntan a `localhost`**
 `robots.txt` y `sitemap.xml` se prerenderizan durante el build, así que toman la base de ese momento.

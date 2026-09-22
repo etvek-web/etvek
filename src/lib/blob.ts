@@ -1,6 +1,6 @@
 import "server-only";
 import { put, del, head } from "@vercel/blob";
-import { missingBlobTokenMessage, resolveBlobToken } from "@/lib/blob-token";
+import { blobIsConfigured, missingBlobTokenMessage, resolveBlobToken } from "@/lib/blob-token";
 
 /**
  * Dos ámbitos de almacenamiento:
@@ -11,16 +11,21 @@ import { missingBlobTokenMessage, resolveBlobToken } from "@/lib/blob-token";
 
 export const PRIVATE_PREFIX = "private";
 
-function token() {
+/**
+ * Credenciales del store. Cuando el proyecto autentica por OIDC no hay token
+ * explícito y el SDK resuelve solo: en ese caso se omite la opción.
+ */
+function auth(): { token?: string } {
   const resolved = resolveBlobToken();
-  if (!resolved) throw new Error(missingBlobTokenMessage());
-  return resolved.token;
+  if (resolved) return { token: resolved.token };
+  if (blobIsConfigured()) return {};
+  throw new Error(missingBlobTokenMessage());
 }
 
 export async function putPublic(pathname: string, body: Blob | Buffer | string, contentType?: string) {
   return put(pathname, body, {
     access: "public",
-    token: token(),
+    ...auth(),
     contentType,
     addRandomSuffix: true,
     cacheControlMaxAge: 60 * 60 * 24 * 365,
@@ -35,7 +40,7 @@ export async function putPrivate(pathname: string, body: Blob | Buffer, contentT
   const full = `${PRIVATE_PREFIX}/${pathname.replace(/^\/+/, "")}`;
   return put(full, body, {
     access: "public",
-    token: token(),
+    ...auth(),
     contentType,
     addRandomSuffix: true,
     cacheControlMaxAge: 0,
@@ -43,12 +48,12 @@ export async function putPrivate(pathname: string, body: Blob | Buffer, contentT
 }
 
 export async function deleteBlob(url: string) {
-  return del(url, { token: token() });
+  return del(url, auth());
 }
 
 export async function blobHead(url: string) {
   try {
-    return await head(url, { token: token() });
+    return await head(url, auth());
   } catch {
     return null;
   }

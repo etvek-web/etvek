@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getCurrentUser } from "@/lib/auth";
-import { missingBlobTokenMessage, resolveBlobToken } from "@/lib/blob-token";
+import { blobIsConfigured, missingBlobTokenMessage, resolveBlobToken } from "@/lib/blob-token";
 import {
   DIRECT_UPLOAD_MIME_TYPES,
   MAX_INPUT_SIZE,
@@ -28,9 +28,8 @@ export async function GET(): Promise<NextResponse> {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ ready: false, reason: "No autorizado." }, { status: 401 });
 
-  const resolved = resolveBlobToken();
   return NextResponse.json(
-    resolved ? { ready: true } : { ready: false, reason: missingBlobTokenMessage() },
+    blobIsConfigured() ? { ready: true } : { ready: false, reason: missingBlobTokenMessage() },
   );
 }
 
@@ -38,8 +37,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  const resolved = resolveBlobToken();
-  if (!resolved) return NextResponse.json({ error: missingBlobTokenMessage() }, { status: 503 });
+  if (!blobIsConfigured()) {
+    return NextResponse.json({ error: missingBlobTokenMessage() }, { status: 503 });
+  }
 
   const body = (await request.json()) as HandleUploadBody;
 
@@ -47,7 +47,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const result = await handleUpload({
       body,
       request,
-      token: resolved.token,
+      token: resolveBlobToken()?.token,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const payload = clientPayload ? (JSON.parse(clientPayload) as { folder?: string; kind?: string }) : {};
         const isVideo = payload.kind === "video";
