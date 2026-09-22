@@ -39,6 +39,7 @@ export type RenderContext = {
   timeline: Parameters<typeof Timeline>[0]["events"];
   paymentMethods: PaymentMethodData[];
   scheduler: { url: string | null; provider: string; enabled: boolean };
+  heroModel: { enabled: boolean; url: string | null; credit: string | null; creditUrl: string | null };
   whatsappHref: string | null;
 };
 
@@ -81,6 +82,7 @@ export function SectionRenderer({ section, ctx }: { section: Section; ctx: Rende
           ctaLabel2={section.ctaLabel2}
           ctaHref2={section.ctaHref2}
           compact={!ctx.isFirstSection}
+          model={ctx.heroModel}
         />
       );
 

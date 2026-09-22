@@ -4,7 +4,9 @@ import { getCurrentUser } from "@/lib/auth";
 import {
   DIRECT_UPLOAD_MIME_TYPES,
   MAX_INPUT_SIZE,
+  MAX_MODEL_SIZE,
   MAX_OPTIMIZED_IMAGE_SIZE,
+  MODEL_MIME_TYPES,
   VIDEO_MIME_TYPES,
   isSafePathname,
 } from "@/lib/media-constraints";
@@ -30,6 +32,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const payload = clientPayload ? (JSON.parse(clientPayload) as { folder?: string; kind?: string }) : {};
         const isVideo = payload.kind === "video";
+        const isModel = payload.kind === "model";
 
         // El pathname lo fija el cliente y esta API no permite reescribirlo, así que
         // se valida y se rechaza el upload si no tiene la forma esperada.
@@ -37,9 +40,19 @@ export async function POST(request: Request): Promise<NextResponse> {
           throw new Error("Ruta de archivo no permitida.");
         }
 
+        const allowedContentTypes = isModel
+          ? [...MODEL_MIME_TYPES]
+          : isVideo
+            ? [...VIDEO_MIME_TYPES]
+            : [...DIRECT_UPLOAD_MIME_TYPES];
+
         return {
-          allowedContentTypes: [...(isVideo ? VIDEO_MIME_TYPES : DIRECT_UPLOAD_MIME_TYPES)],
-          maximumSizeInBytes: isVideo ? MAX_INPUT_SIZE * 2 : Math.max(MAX_OPTIMIZED_IMAGE_SIZE, 1024 * 1024),
+          allowedContentTypes,
+          maximumSizeInBytes: isModel
+            ? MAX_MODEL_SIZE
+            : isVideo
+              ? MAX_INPUT_SIZE * 2
+              : Math.max(MAX_OPTIMIZED_IMAGE_SIZE, 1024 * 1024),
           addRandomSuffix: true,
           tokenPayload: JSON.stringify({ userId: user.id }),
         };

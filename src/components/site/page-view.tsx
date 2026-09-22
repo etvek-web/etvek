@@ -106,6 +106,13 @@ export async function PageView({ slug }: { slug: string }) {
       alias: m.alias,
       accountInfo: m.accountInfo,
     })),
+    heroModel: {
+      // Sólo en la portada: en las páginas internas el hero es compacto.
+      enabled: settings.heroModelEnabled && slug === "home",
+      url: settings.heroModelUrl,
+      credit: settings.heroModelCredit,
+      creditUrl: settings.heroModelCreditUrl,
+    },
     scheduler: {
       url: settings.schedulerUrl,
       provider: settings.schedulerProvider,

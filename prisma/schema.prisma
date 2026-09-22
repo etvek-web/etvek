@@ -488,6 +488,12 @@ model SiteSettings {
   whatsappMessage  String   @default("Hola Eliana, me interesa solicitar una evaluación vocal en ETVEK.")
   /// Mensaje contextual por programa. `{programa}` se reemplaza por el nombre del plan.
   whatsappProgramMessage String @default("Hola Eliana, me interesa el programa de {programa}.")
+  /// Pieza 3D del hero. Sin modelo propio se usa la laringe estilizada por código.
+  heroModelEnabled Boolean @default(true)
+  heroModelUrl     String?
+  /// Crédito del modelo 3D. Las licencias Creative Commons exigen atribución.
+  heroModelCredit    String?
+  heroModelCreditUrl String?
   whatsappEnabled  Boolean  @default(true)
   schedulerUrl     String?
   schedulerProvider String  @default("calendly")

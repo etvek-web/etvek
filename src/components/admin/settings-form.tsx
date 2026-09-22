@@ -6,6 +6,7 @@ import { saveSettings, type FormState } from "@/app/actions/site";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, FieldError, Input, Select, Textarea } from "@/components/ui/field";
 import { MediaPicker } from "@/components/admin/media-picker";
+import { ModelUploader } from "@/components/admin/model-uploader";
 
 const INITIAL: FormState = { status: "idle" };
 
@@ -16,6 +17,10 @@ export type SettingsValues = {
   whatsappNumber: string | null;
   whatsappMessage: string;
   whatsappProgramMessage: string;
+  heroModelEnabled: boolean;
+  heroModelUrl: string | null;
+  heroModelCredit: string | null;
+  heroModelCreditUrl: string | null;
   whatsappEnabled: boolean;
   schedulerUrl: string | null;
   schedulerProvider: string;
@@ -46,7 +51,18 @@ const GROUP_FIELDS: Record<SettingsGroup, (keyof SettingsValues)[]> = {
     "maintenanceMode",
     "legalReviewNote",
   ],
-  apariencia: ["logoId", "defaultOgImageId", "colorBackground", "colorPrimary", "colorAccent", "colorSurface"],
+  apariencia: [
+    "logoId",
+    "defaultOgImageId",
+    "colorBackground",
+    "colorPrimary",
+    "colorAccent",
+    "colorSurface",
+    "heroModelEnabled",
+    "heroModelUrl",
+    "heroModelCredit",
+    "heroModelCreditUrl",
+  ],
   agenda: ["schedulerEnabled", "schedulerProvider", "schedulerUrl"],
 };
 
@@ -55,6 +71,7 @@ const BOOLEANS = new Set<keyof SettingsValues>([
   "schedulerEnabled",
   "analyticsEnabled",
   "maintenanceMode",
+  "heroModelEnabled",
 ]);
 
 /** Un único formulario de ajustes, presentado por grupos. Los campos fuera del grupo viajan intactos. */
@@ -138,6 +155,32 @@ export function SettingsForm({ values, group }: { values: SettingsValues; group:
           <>
             <MediaPicker name="logoId" label="Logo" defaultValue={values.logoId} folder="marca" />
             <MediaPicker name="defaultOgImageId" label="Imagen Open Graph por defecto" defaultValue={values.defaultOgImageId} folder="og" />
+            <div className="md:col-span-2 border-t border-paper/10 pt-6">
+              <Checkbox
+                name="heroModelEnabled"
+                defaultChecked={values.heroModelEnabled}
+                label="Mostrar la laringe 3D en el hero de la página de inicio"
+              />
+              <p className="mt-1.5 text-xs leading-relaxed text-paper/45">
+                Sólo se muestra en pantallas grandes. En celular el hero queda igual que siempre, para no
+                afectar la carga.
+              </p>
+            </div>
+            <div className="md:col-span-2">
+              <ModelUploader name="heroModelUrl" defaultValue={values.heroModelUrl} />
+            </div>
+            <Field
+              label="Crédito del modelo"
+              error={errors.heroModelCredit}
+              hint="Obligatorio con licencias Creative Commons. Ej.: “Larynx” de Vikrama Raghuraman (CC BY)."
+            >
+              {(id) => <Input id={id} name="heroModelCredit" defaultValue={values.heroModelCredit ?? ""} />}
+            </Field>
+            <Field label="Enlace del crédito" error={errors.heroModelCreditUrl}>
+              {(id) => (
+                <Input id={id} name="heroModelCreditUrl" defaultValue={values.heroModelCreditUrl ?? ""} placeholder="https://sketchfab.com/…" />
+              )}
+            </Field>
             {(
               [
                 ["colorBackground", "Fondo (Negro Azabache)"],

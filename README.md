@@ -164,6 +164,43 @@ bloqueo de borrado de cualquier archivo todavía referenciado.
 
 ---
 
+## Pieza 3D del hero
+
+La portada puede mostrar un modelo 3D junto al titular. Se administra desde
+`/admin → Apariencia`:
+
+- **Activar/desactivar** la pieza.
+- **Subir un `.glb`** (glTF binario, hasta 24 MB). Reemplaza a la laringe que el sitio dibuja por
+  código, que queda como respaldo si no hay modelo cargado.
+- **Crédito y enlace**, opcionales: completalos si la licencia del modelo exige atribución.
+
+Decisiones de costo y accesibilidad:
+
+- `three.js` se carga en un *chunk* aparte y sólo cuando la pieza se va a mostrar: el JS inicial de la
+  home no cambia.
+- Sólo se monta en pantallas de 1024px o más, con WebGL disponible y sin "ahorro de datos" activado.
+  En celular el hero queda exactamente como antes.
+- Se renderiza al `devicePixelRatio` real, capado en 2, para verse nítido en pantallas Retina y 4K sin
+  rasterizar de más.
+- El bucle de animación se detiene cuando la pieza sale de pantalla o la pestaña pasa a segundo plano.
+- Con `prefers-reduced-motion` la pieza se muestra quieta, sin girar.
+- Se puede arrastrar con el mouse para girarla; el gesto no secuestra el scroll.
+
+### Preparar un modelo para la web
+
+Un `.glb` de banco de modelos suele venir en decenas de MB, inservible para un hero. Conviene
+optimizarlo antes de subirlo (con `gltfpack` y `gltf-transform`, instalados de forma puntual):
+
+```bash
+npx gltfpack -i original.glb -o simplificado.glb -si 0.5 -sa -cc
+npx @gltf-transform/cli optimize simplificado.glb web.glb \
+  --compress meshopt --texture-compress webp --texture-size 1024 --simplify false
+```
+
+Medición real sobre el modelo de laringe del sitio: **27,66 MB → 1,11 MB** (96 %), sin diferencia
+visible al tamaño en que se muestra. Cuidado con `-si` por debajo de 0,2: la malla se rompe y aparecen
+agujeros. El visor ya trae el decodificador de meshopt, así que los modelos comprimidos se cargan solos.
+
 ## El panel `/admin`
 
 ```

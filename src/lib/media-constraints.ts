@@ -5,6 +5,7 @@ export const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
 export const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 export const MAX_OPTIMIZED_IMAGE_SIZE = 4 * 1024 * 1024; // red de seguridad post-compresión
 export const MAX_SVG_SIZE = 512 * 1024;
+export const MAX_MODEL_SIZE = 24 * 1024 * 1024;
 
 export const IMAGE_MIME_TYPES = [
   "image/jpeg",
@@ -24,6 +25,9 @@ export const DIRECT_UPLOAD_MIME_TYPES = IMAGE_MIME_TYPES.filter((m) => m !== "im
 
 export const DOCUMENT_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
 export const VIDEO_MIME_TYPES = ["video/mp4", "video/webm"] as const;
+
+/** Modelos 3D para el hero. Sólo glTF binario: un archivo, sin dependencias sueltas. */
+export const MODEL_MIME_TYPES = ["model/gltf-binary", "application/octet-stream"] as const;
 
 export type MediaPreset = "hero" | "general" | "thumbnail" | "avatar";
 
@@ -81,4 +85,9 @@ export function isSafePathname(pathname: string) {
   if (pathname.length > 200) return false;
   if (pathname.includes("..") || pathname.startsWith("/")) return false;
   return /^[a-z0-9_-]+\/\d{4}-\d{2}\/[a-zA-Z0-9._-]+$/.test(pathname);
+}
+
+export function isAllowedModel(mime: string, fileName: string) {
+  if (!fileName.toLowerCase().endsWith(".glb")) return false;
+  return (MODEL_MIME_TYPES as readonly string[]).includes(mime) || mime === "";
 }
